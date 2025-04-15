@@ -26,6 +26,7 @@ class MiniIDE(tk.Tk):
         super().__init__()
         self.title("MiniIDE")
         self.geometry("1200x750")
+        self.iconphoto(False, tk.PhotoImage(file="appicon.png"))
         self.configure(bg="#eee")
         self.open_files = {}
         self.dark_mode = False
