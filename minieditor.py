@@ -18,6 +18,7 @@ import select
 import threading
 import pyte
 import queue
+import sys
 
 client = OpenAI(api_key=os.getenv("CHATWIDGET_OPENAI_API_KEY"))
 
@@ -26,7 +27,19 @@ class MiniIDE(tk.Tk):
         super().__init__()
         self.title("MiniIDE")
         self.geometry("1200x750")
-        self.iconphoto(False, tk.PhotoImage(file="appicon.png"))
+        try:
+            if sys.argv[1] == "--iconphoto-v1":
+                self.iconphoto(False, tk.PhotoImage(file="appicon.png"))
+            elif sys.argv[1] == "--iconphoto-v2":
+                self.iconphoto(False, tk.PhotoImage(file="appicon2.png"))
+            elif sys.argv[1] == "--iconphoto-v3":
+                self.iconphoto(False, tk.PhotoImage(file="appicon3.png"))
+            elif sys.argv[1] == "--iconphoto-v4":
+                self.iconphoto(False, tk.PhotoImage(file="appicon4.png"))
+            else:
+                self.iconphoto(False, tk.PhotoImage(file="appicon4.png"))
+        except IndexError:
+            self.iconphoto(False, tk.PhotoImage(file="appicon4.png"))
         self.configure(bg="#eee")
         self.open_files = {}
         self.dark_mode = False
