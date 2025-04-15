@@ -23,8 +23,10 @@ import sys
 client = OpenAI(api_key=os.getenv("CHATWIDGET_OPENAI_API_KEY"))
 
 class MiniIDE(tk.Tk):
-    def __init__(self):
+    def __init__(self, role, name):
         super().__init__()
+        self.role = role
+        self.name = name
         self.title("MiniIDE")
         self.geometry("1200x750")
         try:
@@ -83,6 +85,10 @@ class MiniIDE(tk.Tk):
             self.outline_list.insert("end", f"⚠️ Parse error: {e}")
 
     def create_layout(self):
+        
+        
+        
+        
         # === Top Bar ===
         topbar = tk.Frame(self, bg="#ddd", height=40)
         topbar.pack(side="top", fill="x")
@@ -90,79 +96,158 @@ class MiniIDE(tk.Tk):
         ttk.Button(topbar, text="📁 Open Folder [beta]", command=self.open_folder).pack(side="left", padx=5, pady=5)
         ttk.Button(topbar, text="🌙 Toggle Theme", command=self.toggle_theme).pack(side="left", padx=5, pady=5)
         ttk.Button(topbar, text="Open", command=self.open_file).pack(side="left", padx=5, pady=5)
+        tk.Label(topbar, text=f"Welcome, {self.name}!", bg="#f5f5f5").pack(anchor="w", padx=5)
         self.search_entry = ttk.Entry(topbar)
         self.search_entry.pack(side="left", padx=5, pady=5, fill="x", expand=True)
         ttk.Button(topbar, text="Search", command=self.search_text).pack(side="left", padx=5, pady=5)
         ttk.Button(topbar, text="Reset", command=self.resetter).pack(side="left", padx=5, pady=5)
 
-        # === Main Area ===
-        main_area = tk.Frame(self)
-        main_area.pack(fill="both", expand=True)
+        # === Resizable Paned Layout ===
+        main_pane = ttk.PanedWindow(self, orient="horizontal")
+        main_pane.pack(fill="both", expand=True)
 
-        # === Sidebar (Left) ===
-        sidebar = tk.Frame(main_area, width=200, bg="#f5f5f5")
-        sidebar.pack(side="left", fill="y")
+        # Left Sidebar
+        sidebar = tk.Frame(main_pane, width=200, bg="#f5f5f5")
+        main_pane.add(sidebar, weight=0)
 
         self.file_list = tk.Listbox(sidebar)
         self.file_list.pack(fill="both", expand=True, padx=5, pady=5)
-        
         tk.Label(sidebar, text="Outline", bg="#f5f5f5").pack(anchor="w", padx=5)
         self.outline_list = tk.Listbox(sidebar, height=8)
         self.outline_list.pack(fill="x", padx=5, pady=5)
         self.outline_list.bind("<<ListboxSelect>>", self.jump_to_outline)
+        ttk.Button(sidebar, text="▶ Run", command=self.run_code).pack(fill="x", padx=5, pady=2)
+        ttk.Button(sidebar, text="Save", command=self.save_file).pack(fill="x", padx=5, pady=2)
 
-        # === Editor & MiniAI ===
-        center = tk.Frame(main_area)
-        center.pack(side="left", fill="both", expand=True)
+        # Center Pane (Editor + Terminal)
+        center_pane = ttk.PanedWindow(main_pane, orient="vertical")
+        main_pane.add(center_pane, weight=1)
 
-        self.notebook = ttk.Notebook(center)
+        # Editor and MiniAI Panes
+        editor_ai_pane = ttk.PanedWindow(center_pane, orient="horizontal")
+        center_pane.add(editor_ai_pane, weight=3)
+
+        # Editor Panel
+        editor_frame = tk.Frame(editor_ai_pane)
+        self.notebook = ttk.Notebook(editor_frame)
         self.notebook.pack(fill="both", expand=True)
+        editor_ai_pane.add(editor_frame, weight=3)
 
-        # === MiniAI Panel (Right) ===
-        right_pane = tk.Frame(main_area)
-        right_pane.pack(side="right", fill="both", expand=True)
+        # AI Panel
+        ai_pane = tk.Frame(editor_ai_pane, bg="#f0f0f0")
+        editor_ai_pane.add(ai_pane, weight=1)
 
-        mini_ai = tk.Frame(main_area, width=200, bg="#f0f0f0")
-        mini_ai.pack(side="right", fill="y")
-        tk.Label(mini_ai, text="MiniAI", bg="#f0f0f0").pack(anchor="n", pady=5)
-        self.ai_box = ScrolledText(mini_ai, height=20, state="disabled")
+        tk.Label(ai_pane, text="MiniAI", bg="#f0f0f0").pack(anchor="n", pady=5)
+        self.ai_box = ScrolledText(ai_pane, height=20, state="disabled")
         self.ai_box.pack(fill="both", expand=True, padx=5, pady=5)
-        # Create the MiniAI panel inside the right pane or bottom
-        self.ai_panel = tk.Frame(right_pane, bg="#f9f9f9", relief="sunken", borderwidth=1)
-        self.ai_panel.pack(side="bottom", fill="both", expand=False)
 
-
+        self.ai_panel = tk.Frame(ai_pane, bg="#f9f9f9", relief="sunken", borderwidth=1)
+        self.ai_panel.pack(fill="both", expand=False)
         tk.Label(self.ai_panel, text="MiniAI").pack(anchor="w", padx=5, pady=(5, 0))
-
         self.ai_input = tk.Text(self.ai_panel, height=3, wrap="word")
         self.ai_input.pack(fill="x", padx=5)
-
         tk.Button(self.ai_panel, text="Send", command=self.ask_ai).pack(padx=5, pady=3)
-
         self.ai_output = ScrolledText(self.ai_panel, height=10, wrap="word", state="disabled")
         self.ai_output.pack(fill="both", expand=True, padx=5, pady=5)
-        
         self.ai_input.bind("<Return>", lambda e: (self.ask_ai(), "break"))
+
+        # Terminal Panel
+        terminal_frame = tk.Frame(center_pane, bg="#ddd", height=120)
+        self.output_box = ScrolledText(terminal_frame, height=6, bg="black", fg="lime", insertbackground="white")
+        self.output_box.pack(fill="both", expand=True, padx=5, pady=2)
+        center_pane.add(terminal_frame, weight=1)
+
+        
+        # # === Main Area ===
+        # main_area = tk.Frame(self)
+        # main_area.pack(fill="both", expand=True)
+
+        # # === Sidebar (Left) ===
+        # sidebar = tk.Frame(main_area, width=200, bg="#f5f5f5")
+        # sidebar.pack(side="left", fill="y")
+
+        # self.file_list = tk.Listbox(sidebar)
+        # self.file_list.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # tk.Label(sidebar, text="Outline", bg="#f5f5f5").pack(anchor="w", padx=5)
+        # self.outline_list = tk.Listbox(sidebar, height=8)
+        # self.outline_list.pack(fill="x", padx=5, pady=5)
+        # self.outline_list.bind("<<ListboxSelect>>", self.jump_to_outline)
+
+        # # === Resizable Paned Layout ===
+        # paned = ttk.PanedWindow(main_area, orient="horizontal")
+        # paned.pack(fill="both", expand=True)
+
+        # # Editor Pane
+        # editor_pane = tk.Frame(paned)
+        # self.notebook = ttk.Notebook(editor_pane)
+        # self.notebook.pack(fill="both", expand=True)
+        # paned.add(editor_pane, weight=3)
+
+        # # AI Pane
+        # ai_pane = tk.Frame(paned, bg="#f0f0f0")
+        # paned.add(ai_pane, weight=1)
+
+        # # Add MiniAI widgets to ai_pane
+        # tk.Label(ai_pane, text="MiniAI", bg="#f0f0f0").pack(anchor="n", pady=5)
+        # self.ai_box = ScrolledText(ai_pane, height=20, state="disabled")
+        # self.ai_box.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # self.ai_panel = tk.Frame(ai_pane, bg="#f9f9f9", relief="sunken", borderwidth=1)
+        # self.ai_panel.pack(fill="both", expand=False)
+        # tk.Label(self.ai_panel, text="MiniAI").pack(anchor="w", padx=5, pady=(5, 0))
+        # self.ai_input = tk.Text(self.ai_panel, height=3, wrap="word")
+        # self.ai_input.pack(fill="x", padx=5)
+        # tk.Button(self.ai_panel, text="Send", command=self.ask_ai).pack(padx=5, pady=3)
+        # self.ai_output = ScrolledText(self.ai_panel, height=10, wrap="word", state="disabled")
+        # self.ai_output.pack(fill="both", expand=True, padx=5, pady=5)
+        # self.ai_input.bind("<Return>", lambda e: (self.ask_ai(), "break"))
+
+
+        # # mini_ai = tk.Frame(main_area, width=200, bg="#f0f0f0")
+        # # mini_ai.pack(side="right", fill="y")
+        # # # tk.Label(mini_ai, text="MiniAI", bg="#f0f0f0").pack(anchor="n", pady=5)
+        # # # self.ai_box = ScrolledText(mini_ai, height=20, state="disabled")
+        # # # self.ai_box.pack(fill="both", expand=True, padx=5, pady=5)
+        # # # Create the MiniAI panel inside the right pane or bottom1
+        # # self.ai_panel = tk.Frame(right_pane, bg="#f9f9f9", relief="sunken", borderwidth=1)
+        # # self.ai_panel.pack(side="bottom", fill="both", expand=False)
+
+
+        # # tk.Label(self.ai_panel, text="MiniAI").pack(anchor="w", padx=5, pady=(5, 0))
+
+        # # self.ai_input = tk.Text(self.ai_panel, height=3, wrap="word")
+        # # self.ai_input.pack(fill="x", padx=5)
+
+        # # tk.Button(self.ai_panel, text="Send", command=self.ask_ai).pack(padx=5, pady=3)
+
+        # # self.ai_output = ScrolledText(self.ai_panel, height=10, wrap="word", state="disabled")
+        # # self.ai_output.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # # self.ai_input.bind("<Return>", lambda e: (self.ask_ai(), "break"))
 
 
         # === Bottom Terminal & Status Bar ===
-        bottom = tk.Frame(self, bg="#ddd", height=120)
+        bottom = tk.Frame(self, bg="#ddd", height=10)
         bottom.pack(side="bottom", fill="x")
 
-        # Terminal Output
-        self.output_box = ScrolledText(bottom, height=6, bg="black", fg="lime", insertbackground="white")
-        self.output_box.pack(fill="both", expand=True, padx=5, pady=2)
-        self.output_box.bind("<Return>", self.send_command)
+        # # Terminal Output
+        # self.output_box = ScrolledText(bottom, height=6, bg="black", fg="lime", insertbackground="white")
+        # self.output_box.pack(fill="both", expand=True, padx=5, pady=2)
+        # self.output_box.bind("<Return>", self.send_command)
 
         status = tk.Label(self, text="Line 1, Column 1 | UTF-8 | Python | MiniIDE", anchor="w")
         status.pack(side="bottom", fill="x")
 
-        # === Buttons on Sidebar ===
-        ttk.Button(sidebar, text="▶ Run", command=self.run_code).pack(fill="x", padx=5, pady=2)
-        ttk.Button(sidebar, text="Save", command=self.save_file).pack(fill="x", padx=5, pady=2)
+        # # === Buttons on Sidebar ===
+        # ttk.Button(sidebar, text="▶ Run", command=self.run_code).pack(fill="x", padx=5, pady=2)
+        # ttk.Button(sidebar, text="Save", command=self.save_file).pack(fill="x", padx=5, pady=2)
         
         # === Bind functions ===
-        
+        if self.role == "User":
+            self.disable_user_restricted_features()
+        elif self.role == "Developer":
+            self.restrict_admin_only()
 
 
     def open_file(self):
@@ -200,10 +285,10 @@ class MiniIDE(tk.Tk):
             return
 
         code = editor.get("1.0", "end-1c")
-        with open("temp_run.py", "w") as f:
+        with open(".miniide/run.mfx", "w") as f:
             f.write(code)
 
-        result = subprocess.run(["python3", "temp_run.py"], capture_output=True, text=True)
+        result = subprocess.run(["python3", ".miniide/run.mfx"], capture_output=True, text=True)
         self.output_box.delete("1.0", "end")
         self.output_box.insert("1.0", result.stdout + result.stderr)
 
@@ -283,7 +368,7 @@ class MiniIDE(tk.Tk):
         if not prompt:
             return
 
-        # Try to get the current editor’s content (if any tab is open)
+        # Get editor content (optional)
         try:
             path = self.get_current_path()
             editor = self.open_files[path]["editor"]
@@ -291,7 +376,6 @@ class MiniIDE(tk.Tk):
         except Exception:
             file_content = None
 
-        # Construct messages
         messages = [{"role": "system", "content": "You are a helpful coding assistant inside a mini IDE."}]
         if file_content:
             messages.append({"role": "user", "content": f"The user is editing this file:\n\n{file_content}"})
@@ -306,10 +390,18 @@ class MiniIDE(tk.Tk):
         except Exception as e:
             reply = f"❌ Error: {e}"
 
+        # Latest result
         self.ai_output.config(state="normal")
         self.ai_output.delete("1.0", "end")
         self.ai_output.insert("1.0", reply)
         self.ai_output.config(state="disabled")
+
+        # Append to history
+        self.ai_box.config(state="normal")
+        self.ai_box.insert("end", f">> {prompt}\n{reply}\n\n")
+        self.ai_box.see("end")
+        self.ai_box.config(state="disabled")
+
 
 
     def toggle_theme(self):
@@ -533,7 +625,21 @@ class MiniIDE(tk.Tk):
         self.shell_queue.put(line)
         return "break"  # Prevent newline insertion
 
+    def disable_user_restricted_features(self):
+        # Disable or hide buttons or panels for regular users
+        # Example:
+        self.ai_panel.pack_forget()
+        self.output_box.insert("1.0", "🔒 AI Assistant disabled for regular users.\n")
 
-if __name__ == "__main__":
-    app = MiniIDE()
-    app.mainloop()
+    def restrict_admin_only(self):
+        # Hide admin-only features, but allow more than regular users
+        # You can customize this based on feature sets
+        pass
+
+    # You can also apply role restrictions in other methods if needed
+    # def run_code(self):
+    #     if self.role == "User":
+    #         self.output_box.insert("1.0", "❌ Running code is restricted for your role.\n")
+    #         return
+    #     super().run_code()
+

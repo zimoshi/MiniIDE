@@ -1,0 +1,6 @@
+#ignore python virtual environment
+venv/
+temp_run.py
+
+#ignore pycache
+__pycache__/
