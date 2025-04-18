@@ -4,3 +4,6 @@ temp_run.py
 
 #ignore pycache
 __pycache__/
+
+#ignore temp files
+temp_run.py
